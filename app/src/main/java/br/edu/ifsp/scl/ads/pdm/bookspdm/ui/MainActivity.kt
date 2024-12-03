@@ -15,10 +15,12 @@ import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import br.edu.ifsp.scl.ads.pdm.bookspdm.R
+import br.edu.ifsp.scl.ads.pdm.bookspdm.controller.MainController
 import br.edu.ifsp.scl.ads.pdm.bookspdm.databinding.ActivityMainBinding
 import br.edu.ifsp.scl.ads.pdm.bookspdm.model.Book
 import br.edu.ifsp.scl.ads.pdm.bookspdm.model.Constant
 import br.edu.ifsp.scl.ads.pdm.bookspdm.model.Constant.BOOK
+import br.edu.ifsp.scl.ads.pdm.bookspdm.model.Constant.VIEW_MODE
 
 class MainActivity : AppCompatActivity() {
     private val amb: ActivityMainBinding by lazy {
@@ -32,6 +34,11 @@ class MainActivity : AppCompatActivity() {
     private val bookAdapter: BookAdapter by lazy {
 
         BookAdapter(this, bookList)
+    }
+
+    //Controller
+    private val mainController: MainController by lazy {
+        MainController(this)
     }
 
     private lateinit var barl: ActivityResultLauncher<Intent>
@@ -52,9 +59,11 @@ class MainActivity : AppCompatActivity() {
                     val position = bookList.indexOfFirst { it.isbn == receivedBook.isbn  }
                     if (position == -1) {
                         bookList.add(receivedBook)
+                        mainController.insertBook(receivedBook)
                     }
                     else {
                         bookList[position] = receivedBook
+                        mainController.modifyBook(receivedBook)
                     }
                     bookAdapter.notifyDataSetChanged()
                 }
@@ -69,6 +78,14 @@ class MainActivity : AppCompatActivity() {
         fillBookList()
 
         amb.booksLv.adapter = bookAdapter
+        amb.booksLv.setOnItemClickListener { _, _, position, _ ->
+            Intent(this, BookActivity::class.java).apply {
+                putExtra(BOOK, bookList[position])
+                putExtra(VIEW_MODE, true)
+                startActivity(this)
+            }
+        }
+
         registerForContextMenu(amb.booksLv)
     }
 
@@ -107,6 +124,7 @@ class MainActivity : AppCompatActivity() {
                 true
             }
             R.id.removeBookMi -> {
+                mainController.removeBook(bookList[position].isbn)
                 bookList.removeAt(position)
                 bookAdapter.notifyDataSetChanged()
                 true
@@ -117,19 +135,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-
     private fun fillBookList() {
-        for (index in 1..50) {
-            bookList.add (
-                Book(
-                    "Title $index",
-                    "ISBN $index",
-                    "Author $index",
-                    "Publisher $index",
-                    index,
-                    index
-                )
-            )
-        }
+        Thread {
+            runOnUiThread {
+                bookList.clear()
+                bookList.addAll(mainController.getBook())
+                bookAdapter.notifyDataSetChanged()
+            }
+        }.start()
     }
 }
